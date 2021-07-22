@@ -83,7 +83,7 @@ def run(opts):
 	DWI = pdir_basename + "processed/%s_dti.nii.gz" % subject
 	BVAL = pdir_basename + "processed/%s_dti.bval" % subject
 	BVEC = pdir_basename + "processed/%s_dti.bvec" % subject
-	T1W = pdir_basename + "processed/%s_dti.bvec" % subject
+	T1W = pdir_basename + "processed/%s_T1w.nii.gz" % subject
 	
 	runCmd_log("cp %s %s" % (DWI_path, DWI))
 	runCmd_log("cp %s %s" % (BVAL_path, BVAL))
