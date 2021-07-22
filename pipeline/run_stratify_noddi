@@ -83,11 +83,12 @@ def run(opts):
 	DWI = pdir_basename + "processed/%s_dti.nii.gz" % subject
 	BVAL = pdir_basename + "processed/%s_dti.bval" % subject
 	BVEC = pdir_basename + "processed/%s_dti.bvec" % subject
+	T1W = pdir_basename + "processed/%s_dti.bvec" % subject
 	
 	runCmd_log("cp %s %s" % (DWI_path, DWI))
 	runCmd_log("cp %s %s" % (BVAL_path, BVAL))
 	runCmd_log("cp %s %s" % (BVEC_path, BVEC))
-
+	runCmd_log("cp %s %s" % (T1w_path, T1W))
 
 	# declare names
 	DWI_DN = pdir_basename + "processed/%s_dti_dn.nii.gz" % subject
@@ -112,7 +113,7 @@ def run(opts):
 	assert os.path.exists(DWI_DN_EDDY), "DWI preprocessing did not finish. Is GCC loaded?"
 
 	# ANTS brain extraction
-	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1w_path, output_image_brain = "processed/%s_T1w_" % subject))
+	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1W, output_image_brain = "processed/%s_T1w_" % subject))
 
 	# declare names
 	T1w_brain = pdir_basename + "processed/%s_T1w_BrainExtractionBrain.nii.gz" % subject
