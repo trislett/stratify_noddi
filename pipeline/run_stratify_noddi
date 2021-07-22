@@ -21,6 +21,12 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type = str,
 		metavar = ('str'),
 		required = True)
+	ap.add_argument("-padwi", "--padwipath",
+		nargs = 1,
+		help = "-dwi {bval} {bvec} {4d_image}",
+		type = str,
+		metavar = ('str'),
+		required = False)
 	ap.add_argument("-t1", "--t1path",
 		nargs = 1,
 		help = "-t1 {T1w_image}",
@@ -44,16 +50,16 @@ def run(opts):
 # 2. denoised
 # {subject}_dti_dn.nii.gz
 # {subject}_noise.nii.gz
-# {subject}_noise_mask.nii.gz
-# 3. eddy current correction
-# {subject}_dti_ecc
-# {subject}_dti_ecc.bvec
-# {subject}_dti_ecc_mask
-# {subject}_dti_ecc_brain
-# 4. distortion correction
-# {subject}_dti_dn_ecc_b0_mean.nii.gz				mean of b0 images
-# {subject}_dti_ecc_dc
-# 5. dti linear fit (restore?)
+# 3. degibbs
+# {subject}_dti_dn_degibbsed
+# 4. eddy current correction
+# {subject}_dti_dn_degibbsed_ecc
+# {subject}_dti_dn_degibbsed_ecc.bvec
+# {subject}_dti_dn_degibbsed_ecc_mask
+# {subject}_dti_dn_degibbsed_ecc_brain
+# 5. distortion correction
+# {subject}_dti__dn_degibbsed_ecc_b0_mean.nii.gz				mean of b0 images
+# 6. dti linear fit (restore?)
 # {subject}_dti_dn_ecc_dc_brain_* 					DTI Metrics / NODDI Metrics
 
 	subject = opts.subjid[0]
@@ -72,27 +78,36 @@ def run(opts):
 
 	# copy and rename dwi
 	runCmd_log("mkdir -p processed")
+	
+	# declare names
 	DWI = pdir_basename + "processed/%s_dti.nii.gz" % subject
 	BVAL = pdir_basename + "processed/%s_dti.bval" % subject
 	BVEC = pdir_basename + "processed/%s_dti.bvec" % subject
+	
 	runCmd_log("cp %s %s" % (DWI_path, DWI))
 	runCmd_log("cp %s %s" % (BVAL_path, BVAL))
 	runCmd_log("cp %s %s" % (BVEC_path, BVEC))
 
+
+	# declare names
 	DWI_DN = pdir_basename + "processed/%s_dti_dn.nii.gz" % subject
+	DWI_DN_DG = pdir_basename + "processed/%s_dti_dn_degibbs.nii.gz" % subject
 	# denoise
 	runCmd_log("dwidenoise %s %s -noise processed/%s_noise.nii.gz" % (DWI, DWI_DN, subject))
-	runCmd_log("dwi2mask -fslgrad %s %s %s processed/%s_dti_dn_mask.nii.gz " % (BVEC, BVAL, DWI_DN, subject))
+	# degibbs
+	runCmd_log("mrdegibbs %s %s" % (DWI_DN, DWI_DN_DG))
+	# make mask (useful for checking) ... could be used in dwifslpreproc
+	runCmd_log("dwi2mask -fslgrad %s %s %s processed/%s_dti_dn_mask.nii.gz " % (BVEC, BVAL, DWI_DN_DG, subject))
 
 	# EDDY
 	# declare names
-	DWI_DN_EDDY = pdir_basename + "processed/%s_dti_dn_ecc.nii.gz" % subject
-	DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dti_dn_ecc.bvec" % subject
-	DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dti_dn_ecc.bval" % subject
+	DWI_DN_EDDY = pdir_basename + "processed/%s_dti_dn_degibbs_ecc.nii.gz" % subject
+	DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dti_dn_degibbs_ecc.bvec" % subject
+	DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dti_dn_degibbs_ecc.bval" % subject
 	# assumes A>>P (j-) direction; there will be an option here for bias field correction
 	runCmd_log("dwifslpreproc -fslgrad %s %s -rpe_none -pe_dir ap -export_grad_fsl %s %s %s %s" % (BVEC, BVAL,
 																																DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL,
-																																DWI_DN, DWI_DN_EDDY))
+																																DWI_DN_DG, DWI_DN_EDDY))
 
 	assert os.path.exists(DWI_DN_EDDY), "DWI preprocessing did not finish. Is GCC loaded?"
 
@@ -101,7 +116,7 @@ def run(opts):
 
 	# declare names
 	T1w_brain = pdir_basename + "processed/%s_T1w_BrainExtractionBrain.nii.gz" % subject
-	DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dti_dn_ecc_rounded.bval" % subject
+	DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_rounded.bval" % subject
 
 	bval = np.genfromtxt(DWI_DN_EDDY_BVAL, delimiter=' ', dtype='int32')
 	rounded_bval = np.around(bval, decimals=-3)
@@ -114,8 +129,8 @@ def run(opts):
 	bzero_data = img_data[:,:,:,rounded_bval==0]
 
 	# declare names
-	DWI_DN_EDDY_B0_MEAN = pdir_basename + "processed/%s_dti_dn_ecc_b0_mean.nii.gz" % subject
-	DWI_DN_EDDY_B0_MEAN_BRAIN = pdir_basename + "processed/%s_dti_dn_ecc_b0_mean_brain.nii.gz" % subject
+	DWI_DN_EDDY_B0_MEAN = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_b0_mean.nii.gz" % subject
+	DWI_DN_EDDY_B0_MEAN_BRAIN = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_b0_mean_brain.nii.gz" % subject
 
 	nib.save(nib.nifti1.Nifti1Image(bzero_data.mean(3), header=img.header, affine=img.affine), DWI_DN_EDDY_B0_MEAN)
 	runCmd_log("bet %s %s -f .2" % (DWI_DN_EDDY_B0_MEAN,DWI_DN_EDDY_B0_MEAN_BRAIN))
@@ -134,7 +149,7 @@ def run(opts):
 
 	# apply transformation to DWI data
 	# declare names
-	DWI_DN_EDDY_DC = pdir_basename + "processed/%s_dti_dn_ecc_dc.nii.gz" % subject
+	DWI_DN_EDDY_DC = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_dc.nii.gz" % subject
 	warps = ["processed/b0_to_linT1.nii.gz_0Warp.nii.gz"]
 	runCmd_log(antsApplyTransformCmd(reference = ref,
 												mov = DWI_DN_EDDY,
@@ -150,15 +165,15 @@ def run(opts):
 
 	# subject_dti_ecc_dc_mask. Note: I'm using the linear transformed T1w mask to avoid fitting unwarped distortions
 	# declare names
-	DWI_DN_EDDY_DC_MASK = pdir_basename + "processed/%s_dti_dn_ecc_dc_mask.nii.gz" % subject
-	DWI_DN_EDDY_DC_ERO1 = pdir_basename + "processed/%s_dti_dn_ecc_dc_mask_ero1.nii.gz" % subject
+	DWI_DN_EDDY_DC_MASK = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_dc_mask.nii.gz" % subject
+	DWI_DN_EDDY_DC_ERO1 = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_dc_mask_ero1.nii.gz" % subject
 	runCmd_log("fslmaths processed/lin_T1w_to_b0.nii.gz -bin %s" % DWI_DN_EDDY_DC_MASK)
 	runCmd_log("fslmaths processed/lin_T1w_to_b0.nii.gz -bin -ero %s" % DWI_DN_EDDY_DC_ERO1)
 
 	# Calculate DTI metrics
 	# Add option here for optional refitting to eroded mask
-	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_ecc_dc_brain" % (DWI_DN_EDDY_DC, DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL, DWI_DN_EDDY_DC_MASK, subject))
-	runCmd_log("fslmaths processed/%s_dti_dn_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dti_dn_ecc_dc_brain_invMD.nii.gz" % (subject,subject))
+	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_degibbs_ecc_dc_brain" % (DWI_DN_EDDY_DC, DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL, DWI_DN_EDDY_DC_MASK, subject))
+	runCmd_log("fslmaths processed/%s_dti_dn_degibbs_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dti_dn_degibbs_ecc_dc_brain_invMD.nii.gz" % (subject,subject))
 
 	# NODDI
 	noddi_dir = "processed/noddi"
@@ -178,9 +193,9 @@ def run(opts):
 	ae.load_kernels()
 	ae.fit()
 	ae.save_results()
-#	for metric in ['ICVF','OD', 'ISOVF']:
-#		os.system("cp AMICO/NODDI/FIT_%s.nii.gz %s/%s_Fdti_%s.nii.gz" % (metric, processdwi, subid, metric))
-#	os.system("rm -rf mask.nii subject4d.nii kernels")
+	for metric in ['ICVF','OD', 'ISOVF']:
+		runCmd_log("cp AMICO/NODDI/FIT_%s.nii.gz ../%s_dti_dn_degibbs_ecc_dc_brain_%s.nii.gz" % (metric, subject, metric))
+	runCmd_log("rm -rf mask.nii subject4d.nii kernels")
 
 if __name__ == "__main__":
 	parser = getArgumentParser()
