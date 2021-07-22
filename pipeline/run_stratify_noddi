@@ -157,7 +157,7 @@ def run(opts):
 
 	# Calculate DTI metrics
 	# Add option here for optional refitting to eroded mask
-	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_ecc_dc_brain" % (DWI_DN_EDDY_DC, DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL, DWI_DN_EDDY_DC_MASK))
+	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_ecc_dc_brain" % (DWI_DN_EDDY_DC, DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL, DWI_DN_EDDY_DC_MASK, subject))
 	runCmd_log("fslmaths processed/%s_dti_dn_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dti_dn_ecc_dc_brain_invMD.nii.gz" % (subject,subject))
 
 	# NODDI
