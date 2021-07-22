@@ -36,8 +36,7 @@ def configuration(parent_package = "", top_path = None):
     delegate_options_to_subpackages = True,
     quiet = True)
 
-  CONFIG.add_scripts(os.path.join("pipeline", "run_full_noddi_preprocessing"))
-  CONFIG.add_scripts(os.path.join("pipeline", "01_stratify_unwarp"))
+  CONFIG.add_scripts(os.path.join("pipeline", "run_stratify_noddi"))
   CONFIG.add_subpackage(PACKAGE_NAME)
 
   return CONFIG

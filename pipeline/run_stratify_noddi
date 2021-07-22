@@ -1,0 +1,189 @@
+#!/usr/bin/env python
+
+import os
+import amico
+import argparse as ap
+import numpy as np
+import nibabel as nib
+from ants_tbss.functions import antsLinearRegCmd, antsNonLinearRegCmd, antsApplyTransformCmd, runCmd_log, antsBetCmd
+
+DESCRIPTION = ""
+
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
+	ap.add_argument("-s", "--subjid",
+		nargs = 1,
+		help = "Subject ID",
+		metavar = ('str'),
+		required = True)
+	ap.add_argument("-dwi", "--dwipath",
+		nargs = 3,
+		help = "-dwi {bval} {bvec} {4d_image}",
+		type = str,
+		metavar = ('str'),
+		required = True)
+	ap.add_argument("-t1", "--t1path",
+		nargs = 1,
+		help = "-t1 {T1w_image}",
+		type = str,
+		metavar = ('str'),
+		required = True)
+	ap.add_argument("-nt", "--numthreads", 
+		nargs=1,
+		default=[2],
+		type = int,
+		help="multithreading")
+	return ap
+
+def run(opts):
+
+# Naming convention V0.1
+# 1. RAW DATA
+# {subject}_dti.nii.gz 					the raw dti data
+# {subject}_dti.bvec 					gradient directions
+# {subject}_dti.bval 					b-values
+# 2. denoised
+# {subject}_dti_dn.nii.gz
+# {subject}_noise.nii.gz
+# {subject}_noise_mask.nii.gz
+# 3. eddy current correction
+# {subject}_dti_ecc
+# {subject}_dti_ecc.bvec
+# {subject}_dti_ecc_mask
+# {subject}_dti_ecc_brain
+# 4. distortion correction
+# {subject}_dti_dn_ecc_b0_mean.nii.gz				mean of b0 images
+# {subject}_dti_ecc_dc
+# 5. dti linear fit (restore?)
+# {subject}_dti_dn_ecc_dc_brain_* 					DTI Metrics / NODDI Metrics
+
+	subject = opts.subjid[0]
+	BVAL_path, BVEC_path, DWI_path = opts.dwipath
+	T1w_path = opts.t1path[0]
+	numthreads = opts.numthreads[0]
+
+	DWI_path = os.path.abspath(DWI_path)
+	BVEC_path = os.path.abspath(BVEC_path)
+	BVAL_path = os.path.abspath(BVAL_path)
+	T1w_path = os.path.abspath(T1w_path)
+
+	runCmd_log("mkdir -p %s" % subject)
+	os.chdir(subject)
+	pdir_basename = os.getcwd() + "/"
+
+	# copy and rename dwi
+	runCmd_log("mkdir -p processed")
+	DWI = pdir_basename + "processed/%s_dti.nii.gz" % subject
+	BVAL = pdir_basename + "processed/%s_dti.bval" % subject
+	BVEC = pdir_basename + "processed/%s_dti.bvec" % subject
+	runCmd_log("cp %s %s" % (DWI_path, DWI))
+	runCmd_log("cp %s %s" % (BVEC_path, BVAL))
+	runCmd_log("cp %s %s" % (T1w_path, BVEC))
+
+	DWI_DN = pdir_basename + "processed/%s_dti_dn.nii.gz" % subject
+	# denoise
+	runCmd_log("dwidenoise %s %s -noise processed/%s_noise.nii.gz" % (DWI, DWI_DN, subject))
+	runCmd_log("dwi2mask -fslgrad %s %s %s processed/%s_dti_dn_mask.nii.gz " % (BVEC, BVAL, DWI_DN, subject))
+
+	# EDDY
+	# declare names
+	DWI_DN_EDDY = pdir_basename + "processed/%s_dti_dn_ecc.nii.gz" % subject
+	DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dti_dn_ecc.bvec" % subject
+	DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dti_dn_ecc.bval" % subject
+	# assumes A>>P (j-) direction; there will be an option here for bias field correction
+	runCmd_log("dwifslpreproc -fslgrad %s %s -rpe_none -pe_dir ap -export_grad_fsl %s %s %s %s" % (BVEC, BVAL,
+																																DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL,
+																																DWI_DN, DWI_DN_EDDY))
+
+	assert os.path.exists(DWI_DN_EDDY), "DWI preprocessing did not finish. Is GCC loaded?"
+
+	# ANTS brain extraction
+	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1w_path, output_image_brain = "processed/%s_T1w_" % subject))
+
+	# declare names
+	T1w_brain = pdir_basename + "processed/%s_T1w_BrainExtractionBrain.nii.gz" % subject
+	DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dti_dn_ecc_rounded.bval" % subject
+
+	bval = np.genfromtxt(DWI_DN_EDDY_BVAL, delimiter=' ', dtype='int32')
+	rounded_bval = np.around(bval, decimals=-3)
+	# output round bval which is later used for amico
+	np.savetxt(DWI_DN_EDDY_BVAL_ROUNDED, rounded_bval, delimiter='', newline=' ', fmt='%i')
+
+	# get the mean B0 images
+	img = nib.load(DWI_DN_EDDY)
+	img_data = img.get_fdata()
+	bzero_data = img_data[:,:,:,rounded_bval==0]
+
+	# declare names
+	DWI_DN_EDDY_B0_MEAN = pdir_basename + "processed/%s_dti_dn_ecc_b0_mean.nii.gz" % subject
+	DWI_DN_EDDY_B0_MEAN_BRAIN = pdir_basename + "processed/%s_dti_dn_ecc_b0_mean_brain.nii.gz" % subject
+
+	nib.save(nib.nifti1.Nifti1Image(bzero_data.mean(3), header=img.header, affine=img.affine), DWI_DN_EDDY_B0_MEAN)
+	runCmd_log("bet %s %s -f .2" % (DWI_DN_EDDY_B0_MEAN,DWI_DN_EDDY_B0_MEAN_BRAIN))
+
+	# linear registration of T1w_brain to B0_mean_brain
+	ref = DWI_DN_EDDY_B0_MEAN_BRAIN
+	mov = T1w_brain
+	out = 'processed/lin_T1w_to_b0.nii.gz'
+	runCmd_log(antsLinearRegCmd(numthreads = numthreads, reference  = ref, mov = mov, out_basename = out, outdir=None, use_float=False))
+
+	# non linear registration of B0_mean_brain to lin_T1w_to_b0.nii.gz
+	ref = 'processed/lin_T1w_to_b0.nii.gz'
+	mov = DWI_DN_EDDY_B0_MEAN_BRAIN
+	out = 'processed/b0_to_linT1.nii.gz'
+	runCmd_log(antsNonLinearRegCmd(numthreads = numthreads, reference = ref,  mov=mov, out_basename = out, outdir = None, use_float = False))
+
+	# apply transformation to DWI data
+	# declare names
+	DWI_DN_EDDY_DC = pdir_basename + "processed/%s_dti_dn_ecc_dc.nii.gz" % subject
+	warps = ["processed/b0_to_linT1.nii.gz_0Warp.nii.gz"]
+	runCmd_log(antsApplyTransformCmd(reference = ref,
+												mov = DWI_DN_EDDY,
+												warps = warps,
+												outname = DWI_DN_EDDY_DC,
+												inverse = False, multipleimages = True))
+
+	runCmd_log("mkdir QC")
+	runCmd_log("fslsplit %s QC/" % DWI_DN_EDDY_DC)
+	runCmd_log("slicesdir -p processed/lin_T1w_to_b0.nii.gz QC/*")
+	runCmd_log("rm -r QC")
+	runCmd_log("mv slicesdir processed/QC_unwarped_dwi")
+
+	# subject_dti_ecc_dc_mask. Note: I'm using the linear transformed T1w mask to avoid fitting unwarped distortions
+	# declare names
+	DWI_DN_EDDY_DC_MASK = pdir_basename + "processed/%s_dti_dn_ecc_dc_mask.nii.gz" % subject
+	DWI_DN_EDDY_DC_ERO1 = pdir_basename + "processed/%s_dti_dn_ecc_dc_mask_ero1.nii.gz" % subject
+	runCmd_log("fslmaths processed/lin_T1w_to_b0.nii.gz -bin %s" % DWI_DN_EDDY_DC_MASK)
+	runCmd_log("fslmaths processed/lin_T1w_to_b0.nii.gz -bin -ero %s" % DWI_DN_EDDY_DC_ERO1)
+
+	# Calculate DTI metrics
+	# Add option here for optional refitting to eroded mask
+	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_ecc_dc_brain" % (DWI_DN_EDDY_DC, DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL, DWI_DN_EDDY_DC_MASK))
+	runCmd_log("fslmaths processed/%s_dti_dn_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dti_dn_ecc_dc_brain_invMD.nii.gz" % (subject,subject))
+
+	# NODDI
+	noddi_dir = "processed/noddi"
+	runCmd_log("mkdir -p " + noddi_dir)
+	os.chdir(noddi_dir)
+
+	runCmd_log("zcat %s > subject4d.nii" % (DWI_DN_EDDY_DC))
+	runCmd_log("zcat %s > mask.nii" % (DWI_DN_EDDY_DC_MASK))
+
+	amico.core.setup()
+	scheme_name = ("amico.scheme")
+	amico.util.fsl2scheme(DWI_DN_EDDY_BVAL_ROUNDED, DWI_DN_EDDY_BVEC, schemeFilename=scheme_name)
+	ae = amico.Evaluation("","")
+	ae.load_data(dwi_filename = "subject4d.nii", scheme_filename = "amico.scheme", mask_filename = "mask.nii", b0_thr = 0)
+	ae.set_model("NODDI")
+	ae.generate_kernels(regenerate = True)
+	ae.load_kernels()
+	ae.fit()
+	ae.save_results()
+#	for metric in ['ICVF','OD', 'ISOVF']:
+#		os.system("cp AMICO/NODDI/FIT_%s.nii.gz %s/%s_Fdti_%s.nii.gz" % (metric, processdwi, subid, metric))
+#	os.system("rm -rf mask.nii subject4d.nii kernels")
+
+if __name__ == "__main__":
+	parser = getArgumentParser()
+	opts = parser.parse_args()
+	run(opts)
+
