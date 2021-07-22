@@ -76,8 +76,8 @@ def run(opts):
 	BVAL = pdir_basename + "processed/%s_dti.bval" % subject
 	BVEC = pdir_basename + "processed/%s_dti.bvec" % subject
 	runCmd_log("cp %s %s" % (DWI_path, DWI))
-	runCmd_log("cp %s %s" % (BVEC_path, BVAL))
-	runCmd_log("cp %s %s" % (T1w_path, BVEC))
+	runCmd_log("cp %s %s" % (BVAL_path, BVAL))
+	runCmd_log("cp %s %s" % (BVEC_path, BVEC))
 
 	DWI_DN = pdir_basename + "processed/%s_dti_dn.nii.gz" % subject
 	# denoise
