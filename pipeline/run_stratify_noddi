@@ -112,11 +112,15 @@ def run(opts):
 
 	assert os.path.exists(DWI_DN_EDDY), "DWI preprocessing did not finish. Is GCC loaded?"
 
+	# N4 bias field correction for T1w image
+	T1W_N4 = pdir_basename + "processed/%s_T1w_bfc.nii.gz" % subject
+	runCmd_log("N4BiasFieldCorrection -d 3 -i %s -o %s" % (T1W, T1W_N4))
+
 	# ANTS brain extraction
-	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1W, output_image_brain = "processed/%s_T1w_" % subject))
+	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1W_N4, output_image_brain = "processed/%s_T1w_bfc_" % subject))
 
 	# declare names
-	T1w_brain = pdir_basename + "processed/%s_T1w_BrainExtractionBrain.nii.gz" % subject
+	T1w_brain = pdir_basename + "processed/%s_T1w_bfc_BrainExtractionBrain.nii.gz" % subject
 	DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_rounded.bval" % subject
 
 	bval = np.genfromtxt(DWI_DN_EDDY_BVAL, delimiter=' ', dtype='int32')
