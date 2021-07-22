@@ -33,6 +33,12 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type = str,
 		metavar = ('str'),
 		required = True)
+	ap.add_argument("-trot", "--totalreadouttime",
+		nargs = 1,
+		help = "-trot {total readout time} (default: %(default)s)",
+		type = str,
+		metavar = ('str'),
+		default = ['0.0876336'])
 	ap.add_argument("-nt", "--numthreads", 
 		nargs=1,
 		default=[2],
@@ -66,6 +72,7 @@ def run(opts):
 	BVAL_path, BVEC_path, DWI_path = opts.dwipath
 	T1w_path = opts.t1path[0]
 	numthreads = opts.numthreads[0]
+	totalreadouttime = str(opts.totalreadouttime[0])
 
 	DWI_path = os.path.abspath(DWI_path)
 	BVEC_path = os.path.abspath(BVEC_path)
@@ -93,9 +100,9 @@ def run(opts):
 	# declare names
 	DWI_DN = pdir_basename + "processed/%s_dti_dn.nii.gz" % subject
 	DWI_DN_DG = pdir_basename + "processed/%s_dti_dn_degibbs.nii.gz" % subject
-	# denoise
+	# denoise. 
 	runCmd_log("dwidenoise %s %s -noise processed/%s_noise.nii.gz" % (DWI, DWI_DN, subject))
-	# degibbs
+	# degibbs.
 	runCmd_log("mrdegibbs %s %s" % (DWI_DN, DWI_DN_DG))
 	# make mask (useful for checking) ... could be used in dwifslpreproc
 	runCmd_log("dwi2mask -fslgrad %s %s %s processed/%s_dti_dn_mask.nii.gz " % (BVEC, BVAL, DWI_DN_DG, subject))
@@ -105,8 +112,9 @@ def run(opts):
 	DWI_DN_EDDY = pdir_basename + "processed/%s_dti_dn_degibbs_ecc.nii.gz" % subject
 	DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dti_dn_degibbs_ecc.bvec" % subject
 	DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dti_dn_degibbs_ecc.bval" % subject
-	# assumes A>>P (j-) direction; there will be an option here for bias field correction
-	runCmd_log("dwifslpreproc -fslgrad %s %s -rpe_none -pe_dir ap -export_grad_fsl %s %s %s %s" % (BVEC, BVAL,
+	# assumes A>>P (j-) direction; there will be an option here for inhomogeneity field estimation
+	runCmd_log("dwifslpreproc -fslgrad %s %s -rpe_none -pe_dir ap -readout_time %s -export_grad_fsl %s %s %s %s" % (BVEC, BVAL,
+																																totalreadouttime,
 																																DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL,
 																																DWI_DN_DG, DWI_DN_EDDY))
 
@@ -116,7 +124,7 @@ def run(opts):
 	T1W_N4 = pdir_basename + "processed/%s_T1w_bfc.nii.gz" % subject
 	runCmd_log("N4BiasFieldCorrection -d 3 -i %s -o %s" % (T1W, T1W_N4))
 
-	# ANTS brain extraction
+	# ANTS brain extraction; antsbet does do a N4bfc, but this way makes sure that the structural template is unbiased for registration. Unlikely to have much of an effect w/ or w/out N4...
 	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1W_N4, output_image_brain = "processed/%s_T1w_bfc_" % subject))
 
 	# declare names
@@ -138,19 +146,29 @@ def run(opts):
 	DWI_DN_EDDY_B0_MEAN_BRAIN = pdir_basename + "processed/%s_dti_dn_degibbs_ecc_b0_mean_brain.nii.gz" % subject
 
 	nib.save(nib.nifti1.Nifti1Image(bzero_data.mean(3), header=img.header, affine=img.affine), DWI_DN_EDDY_B0_MEAN)
-	runCmd_log("bet %s %s -f .2" % (DWI_DN_EDDY_B0_MEAN,DWI_DN_EDDY_B0_MEAN_BRAIN))
+	runCmd_log("bet %s %s -f .2" % (DWI_DN_EDDY_B0_MEAN, DWI_DN_EDDY_B0_MEAN_BRAIN))
 
 	# linear registration of T1w_brain to B0_mean_brain
 	ref = DWI_DN_EDDY_B0_MEAN_BRAIN
 	mov = T1w_brain
 	out = 'processed/lin_T1w_to_b0.nii.gz'
-	runCmd_log(antsLinearRegCmd(numthreads = numthreads, reference  = ref, mov = mov, out_basename = out, outdir=None, use_float=False))
+	runCmd_log(antsLinearRegCmd(numthreads = numthreads,
+										reference  = ref,
+										mov = mov,
+										out_basename = out,
+										outdir=None,
+										use_float=False))
 
 	# non linear registration of B0_mean_brain to lin_T1w_to_b0.nii.gz
 	ref = 'processed/lin_T1w_to_b0.nii.gz'
 	mov = DWI_DN_EDDY_B0_MEAN_BRAIN
 	out = 'processed/b0_to_linT1.nii.gz'
-	runCmd_log(antsNonLinearRegCmd(numthreads = numthreads, reference = ref,  mov=mov, out_basename = out, outdir = None, use_float = False))
+	runCmd_log(antsNonLinearRegCmd(numthreads = numthreads,
+											reference = ref,
+											mov=mov,
+											out_basename = out,
+											outdir = None,
+											use_float = False))
 
 	# apply transformation to DWI data
 	# declare names
@@ -177,8 +195,12 @@ def run(opts):
 
 	# Calculate DTI metrics
 	# Add option here for optional refitting to eroded mask
-	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_degibbs_ecc_dc_brain" % (DWI_DN_EDDY_DC, DWI_DN_EDDY_BVEC, DWI_DN_EDDY_BVAL, DWI_DN_EDDY_DC_MASK, subject))
-	runCmd_log("fslmaths processed/%s_dti_dn_degibbs_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dti_dn_degibbs_ecc_dc_brain_invMD.nii.gz" % (subject,subject))
+	runCmd_log("dtifit -k %s -r %s -b %s -m %s -o processed/%s_dti_dn_degibbs_ecc_dc_brain" % (DWI_DN_EDDY_DC,
+																													DWI_DN_EDDY_BVEC,
+																													DWI_DN_EDDY_BVAL,
+																													DWI_DN_EDDY_DC_MASK,
+																													subject))
+	runCmd_log("fslmaths processed/%s_dti_dn_degibbs_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dti_dn_degibbs_ecc_dc_brain_invMD.nii.gz" % (subject, subject))
 
 	# NODDI
 	noddi_dir = "processed/noddi"
