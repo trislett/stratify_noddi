@@ -96,9 +96,6 @@ def run(opts):
 		pa_BVAL_path = check_dwi_files(opts.pab0path, ".bval")
 		pa_BVEC_path = check_dwi_files(opts.pab0path, ".bvec")
 		pa_DWI_path = check_dwi_files(opts.pab0path, ".nii.gz")
-		pa_BVAL_path = os.path.abspath(pa_BVAL_path)
-		pa_BVEC_path = os.path.abspath(pa_BVEC_path)
-		pa_DWI_path = os.path.abspath(pa_DWI_path)
 
 	DWI_path = os.path.abspath(DWI_path)
 	BVEC_path = os.path.abspath(BVEC_path)
