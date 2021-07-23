@@ -45,11 +45,11 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type = int,
 		metavar = ('int'),
 		default = [3])
-	ap.add_argument("-nt", "--numthreads (default: %(default)s)", 
+	ap.add_argument("-nt", "--numthreads", 
 		nargs=1,
 		default=[2],
 		type = int,
-		help="Multithreading. Only partially implemented")
+		help="Multithreading (default: %(default)s). Only partially implemented")
 	return ap
 
 def run(opts):
