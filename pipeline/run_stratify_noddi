@@ -93,9 +93,9 @@ def run(opts):
 		T1w_path = opts.t1path[0]
 		T1w_path = os.path.abspath(T1w_path)
 	if opts.pab0path:
-		pa_BVAL_path = check_dwi_files(opts.padwipath, ".bval")
-		pa_BVEC_path = check_dwi_files(opts.padwipath, ".bvec")
-		pa_DWI_path = check_dwi_files(opts.padwipath, ".nii.gz")
+		pa_BVAL_path = check_dwi_files(opts.pab0path, ".bval")
+		pa_BVEC_path = check_dwi_files(opts.pab0path, ".bvec")
+		pa_DWI_path = check_dwi_files(opts.pab0path, ".nii.gz")
 		pa_BVAL_path = os.path.abspath(pa_BVAL_path)
 		pa_BVEC_path = os.path.abspath(pa_BVEC_path)
 		pa_DWI_path = os.path.abspath(pa_DWI_path)
@@ -123,7 +123,7 @@ def run(opts):
 	if opts.t1path:
 		T1W = pdir_basename + "processed/%s_T1w.nii.gz" % subject
 		runCmd_log("cp %s %s" % (T1w_path, T1W))
-	if opts.padwipath:
+	if opts.pab0path:
 		paBVAL = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
 		paBVEC = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
 		paDWI = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
@@ -232,7 +232,7 @@ def run(opts):
 		runCmd_log("mv slicesdir processed/QC_unwarped_dwi")
 
 
-	if opts.padwipath:
+	if opts.pab0path:
 		# unwarping using topup / eddy. I think that dwifslpreproc needs bvec/bval to be imported via rpe_header to work, so I'll use topup/eddy instead. Maybe try adding zero'd bvec?
 
 		AP_B0_bval = np.genfromtxt(BVAL, delimiter=" ")
