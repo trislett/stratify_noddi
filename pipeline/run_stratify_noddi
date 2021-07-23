@@ -54,25 +54,25 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 
 def run(opts):
 
-# Naming convention V0.1
-# 1. RAW DATA
-# {subject}_dwi-AP.nii.gz 					the raw dti data
-# {subject}_dwi-AP.bvec 					gradient directions
-# {subject}_dwi-AP.bval 					b-values
-# 2. denoised
-# {subject}_dwi-AP_dn.nii.gz
-# {subject}_noise.nii.gz
-# 3. degibbs
-# {subject}_dwi-AP_dn_degibbsed
-# 4. eddy current correction
-# {subject}_dwi-AP_dn_degibbsed_ecc
-# {subject}_dwi-AP_dn_degibbsed_ecc.bvec
-# {subject}_dwi-AP_dn_degibbsed_ecc_mask
-# {subject}_dwi-AP_dn_degibbsed_ecc_brain
-# 5. distortion correction
-# {subject}_dwi-AP__dn_degibbsed_ecc_b0_mean.nii.gz				mean of b0 images
-# 6. dti linear fit (restore?)
-# {subject}_dwi-AP_dn_ecc_dc_brain_* 					DTI Metrics / NODDI Metrics
+	# Naming convention V0.1
+	# 1. RAW DATA
+	# {subject}_dwi-AP.nii.gz 					the raw dti data
+	# {subject}_dwi-AP.bvec 					gradient directions
+	# {subject}_dwi-AP.bval 					b-values
+	# 2. denoised
+	# {subject}_dwi-AP_dn.nii.gz
+	# {subject}_noise.nii.gz
+	# 3. degibbs
+	# {subject}_dwi-AP_dn_degibbsed
+	# 4. eddy current correction
+	# {subject}_dwi-AP_dn_degibbsed_ecc
+	# {subject}_dwi-AP_dn_degibbsed_ecc.bvec
+	# {subject}_dwi-AP_dn_degibbsed_ecc_mask
+	# {subject}_dwi-AP_dn_degibbsed_ecc_brain
+	# 5. distortion correction
+	# {subject}_dwi-AP__dn_degibbsed_ecc_b0_mean.nii.gz				mean of b0 images
+	# 6. dti linear fit (restore?)
+	# {subject}_dwi-AP_dn_ecc_dc_brain_* 					DTI Metrics / NODDI Metrics
 
 	subject = opts.subjid[0]
 	BVAL_path = check_dwi_files(opts.dwipath, ".bval")
@@ -86,8 +86,8 @@ def run(opts):
 	if JSON_path is not None:
 		with open(JSON_path) as dwi_json_file:
 			dwi_json = json.load(dwi_json_file)
-		TotalReadoutTime = dwi_json["TotalReadoutTime"]
-		print("Total Readout Time from %s is: %1.5f" % (JSON_path, TotalReadoutTime))
+		TotalReadoutTime = str(dwi_json["TotalReadoutTime"])
+		print("Total Readout Time from %s is: %s" % (JSON_path, TotalReadoutTime))
 
 	if opts.t1path:
 		T1w_path = opts.t1path[0]
@@ -121,11 +121,13 @@ def run(opts):
 		T1W = pdir_basename + "processed/%s_T1w.nii.gz" % subject
 		runCmd_log("cp %s %s" % (T1w_path, T1W))
 	if opts.pab0path:
-		paBVAL = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
-		paBVEC = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
+		if pa_BVAL_path is not None:
+			paBVAL = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
+			runCmd_log("cp %s %s" % (pa_BVAL_path, paBVAL))
+		if pa_BVEC_path is not None:
+			paBVEC = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
+			runCmd_log("cp %s %s" % (pa_BVEC_path, paBVEC))
 		paDWI = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
-		runCmd_log("cp %s %s" % (pa_BVEC_path, paBVEC))
-		runCmd_log("cp %s %s" % (pa_BVAL_path, paBVAL))
 		runCmd_log("cp %s %s" % (pa_DWI_path, paDWI))
 
 	# declare names
@@ -140,7 +142,7 @@ def run(opts):
 
 	# round the bval for NODDI/indexing
 	DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_rounded.bval" % subject
-	bval = np.genfromtxt(DWI_DN_EDDY_BVAL, delimiter=' ', dtype=int)
+	bval = np.genfromtxt(BVAL, delimiter=' ', dtype=int)
 	rounded_bval = np.around(bval, decimals=-3)
 	# output round bval which is later used for amico
 	np.savetxt(DWI_DN_EDDY_BVAL_ROUNDED, rounded_bval, delimiter='', newline=' ', fmt='%i')
@@ -270,16 +272,16 @@ def run(opts):
 
 		AP_PA_B0_out = "processed/%s_dwi-b0-pair.nii.gz" % (subject)
 		nib.save(nib.Nifti1Image(np.concatenate((AP_B0_data, PA_B0_data),3), AP_dwi_img.affine), AP_PA_B0_out)
-		np.savetxt('processed/acqparams.txt', acqparams, fmt='%d %d %d %1.6f')
+		np.savetxt('processed/acqparams.txt', acqparams, fmt='%s')
 
 		#Run top-up
-		os.runCmd_log("topup --imain=%s --datain=processed/acqparams.txt --config=b02b0.cnf --iout=processed/%s-b0_dc --out=processed/%s-topup-results" % (AP_PA_B0_out, subject, subject))
+		runCmd_log("topup --imain=%s --datain=processed/acqparams.txt --config=b02b0.cnf --iout=processed/%s-b0_dc --out=processed/%s-topup-results" % (AP_PA_B0_out, subject, subject))
 		ub0_img = nib.load("processed/%s-b0_dc.nii.gz" % (subject))
 		
 		# create an unwarped average b0 image that may be useful for registration
 		ub0_data = ub0_img.get_fdata()
 		ub0_data = ub0_data.mean(3)
-		nib.save(nib.Nifti1Image(ub0_data,ub0_img.affine), "processed/%s-b0-mean-dc.nii.gz" % (subject))
+		nib.save(nib.Nifti1Image(ub0_data,ub0_img.affine), "processed/%s-b0_dc_mean.nii.gz" % (subject))
 		runCmd_log("bet processed/%s-b0_dc_mean.nii.gz processed/%s-b0_dc_mean_brain -m -f 0.2" % (subject, subject))
 
 
@@ -291,7 +293,7 @@ def run(opts):
 		DWI_DN_EDDY = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.nii.gz" % subject
 		DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.bvec" % subject
 		DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.bval" % subject
-		DWI_DN_EDDY_DC_MASK = pdir_basename + "processed/%s-b0_dc_mean_brain.nii.gz" % subject
+		DWI_DN_EDDY_DC_MASK = pdir_basename + "processed/%s-b0_dc_mean_brain_mask.nii.gz" % subject
 		runCmd_log("cp processed/%s_dwi-AP_dn_degibbs_ecc_dc.eddy_rotated_bvecs %s" % (subject, DWI_DN_EDDY_BVEC))
 		runCmd_log("cp %s %s" % (BVAL, DWI_DN_EDDY_BVAL))
 
