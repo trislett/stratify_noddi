@@ -141,9 +141,13 @@ def run(opts):
 	# make mask (useful for checking) ... could be used in dwifslpreproc
 	runCmd_log("dwi2mask -fslgrad %s %s %s processed/%s_dwi-AP_dn_mask.nii.gz " % (BVEC, BVAL, DWI_DN_DG, subject))
 
+	# round the bval for NODDI/indexing
+	DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_rounded.bval" % subject
+	bval = np.genfromtxt(DWI_DN_EDDY_BVAL, delimiter=' ', dtype=int)
+	rounded_bval = np.around(bval, decimals=-3)
+	# output round bval which is later used for amico
+	np.savetxt(DWI_DN_EDDY_BVAL_ROUNDED, rounded_bval, delimiter='', newline=' ', fmt='%i')
 
-
-	
 	if opts.t1path:
 		# EDDY
 		# declare names
@@ -168,12 +172,7 @@ def run(opts):
 
 		# declare names
 		T1w_brain = pdir_basename + "processed/%s_T1w_bfc_BrainExtractionBrain.nii.gz" % subject
-		DWI_DN_EDDY_BVAL_ROUNDED = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_rounded.bval" % subject
 
-		bval = np.genfromtxt(DWI_DN_EDDY_BVAL, delimiter=' ', dtype='int32')
-		rounded_bval = np.around(bval, decimals=-3)
-		# output round bval which is later used for amico
-		np.savetxt(DWI_DN_EDDY_BVAL_ROUNDED, rounded_bval, delimiter='', newline=' ', fmt='%i')
 
 		# get the mean B0 images
 		img = nib.load(DWI_DN_EDDY)
@@ -234,15 +233,7 @@ def run(opts):
 
 
 	if opts.padwipath:
-		# unwarping using topup / eddy. I think that dwifslpreproc needs bvec/bval to be imported to work, so I'll use topup/eddy instead
-
-#	DWI = pdir_basename + "processed/%s_dwi-AP.nii.gz" % subject
-#	BVAL = pdir_basename + "processed/%s_dwi-AP.bval" % subject
-#	BVEC = pdir_basename + "processed/%s_dwi-AP.bvec" % subject
-#	paBVAL = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
-#	paBVEC = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
-#	paDWI = pdir_basename + "processed/%s_dwi-PA.nii.gz" % subject
-#DWI_DN_DG use this!
+		# unwarping using topup / eddy. I think that dwifslpreproc needs bvec/bval to be imported via rpe_header to work, so I'll use topup/eddy instead. Maybe try adding zero'd bvec?
 
 		AP_B0_bval = np.genfromtxt(BVAL, delimiter=" ")
 		AP_B0_bval_round = np.round(AP_B0_bval,-3).astype(int)
