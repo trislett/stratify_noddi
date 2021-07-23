@@ -19,6 +19,28 @@ ANTSPATH = os.environ['ANTSPATH']
 assert "FSLDIR" in os.environ, "The environment variable FSLDIR must be declared."
 FSLDIR = os.environ['FSLDIR']
 
+def check_dwi_files(dwi_opts, extension):
+	"""
+	Checks the dwi file list, selects the file with the desired extension, and checks if the file exists.
+	
+	Parameters
+	----------
+	dwi_opts : list
+	extension : str
+	
+	Returns
+	-------
+	selected_file : str
+	"""
+	for dwi_file in dwi_opts:
+		if dwi_file.endswith(extension):
+			selected_file = dwi_file
+			assert os.path.exists(dwi_file), "Error: dwi file [%s] does not exist. Please check your path."
+	try:
+		return(selected_file)
+	except NameError:
+		return(None)
+
 def get_wildcard(searchstring, printarray = False): # super dirty
 	"""
 	Essentially glob but using bash. It outputs search arrays if more than one file is found.
