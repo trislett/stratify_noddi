@@ -22,7 +22,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type = str,
 		metavar = ('str'),
 		required = True)
-	edc_method = parser.add_mutually_exclusive_group(required = True)
+	edc_method = ap.add_mutually_exclusive_group(required = True)
 	edc_method.add_argument("-pab0", "--pab0path",
 		nargs = 1,
 		help = "-padwi {4D_b0image} [{bval} {bvec} optional {json}]. E.g., -dwi path/to/sub-TEST.*",
