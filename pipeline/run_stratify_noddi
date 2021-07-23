@@ -6,7 +6,7 @@ import amico
 import argparse as ap
 import numpy as np
 import nibabel as nib
-from ants_tbss.functions import antsLinearRegCmd, antsNonLinearRegCmd, antsApplyTransformCmd, runCmd_log, antsBetCmd, check_dwi_files
+from stratify_noddi.functions import antsLinearRegCmd, antsNonLinearRegCmd, antsApplyTransformCmd, runCmd_log, antsBetCmd, check_dwi_files
 
 DESCRIPTION = ""
 
