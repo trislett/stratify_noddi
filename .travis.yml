@@ -6,7 +6,7 @@ python:
   - "3.8"
 
 install:
-  - pip install .
+  - pip install -e .
 
 script: run_stratify_noddi -h
 
