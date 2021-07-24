@@ -1,0 +1,16 @@
+language: python
+
+python:
+  - "3.4"
+  - "3.5"
+  - "3.6"      # current default Python on Travis CI
+  - "3.7"
+  - "3.8"
+
+install:
+  - pip install .
+
+script: run_stratify_noddi -h
+
+env:
+  - ANTSPATH=/PATH/TO/ANTS FSLDIR=/PATH/TO/FSL
