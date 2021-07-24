@@ -5,12 +5,6 @@ import time
 import datetime
 import numpy as np
 import nibabel as nib
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import matplotlib.colors as colors
-import scipy.misc as misc
-from matplotlib import cm
-from scipy import ndimage
 from skimage import filters
 
 

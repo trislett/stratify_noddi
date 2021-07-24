@@ -239,7 +239,7 @@ def run(opts):
 		AP_B0_index = AP_B0_bval_round==0
 		num_AP_B0 = len(AP_B0_bval_round[AP_B0_index])
 
-		if paBVAL is None:
+		if pa_BVAL_path is None:
 			n_vols = nib.load(paDWI).get_fdata().shape[-1]
 			PA_B0_index = np.zeros((n_vols), dtype=bool)
 			PA_B0_index[:N_PA_B0] = True
@@ -290,7 +290,7 @@ def run(opts):
 
 		runCmd_log("eddy_openmp --imain=%s --mask=processed/%s-b0_dc_mean_brain_mask --acqp=processed/acqparams.txt --index=processed/index.txt --bvecs=%s --bvals=%s --fwhm=0 --topup=processed/%s-topup-results --flm=quadratic --out=processed/%s_dwi-AP_dn_degibbs_ecc_dc" % (DWI_DN_DG, subject, BVEC, BVAL, subject, subject))
 
-		DWI_DN_EDDY = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.nii.gz" % subject
+		DWI_DN_EDDY_DC = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.nii.gz" % subject
 		DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.bvec" % subject
 		DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.bval" % subject
 		DWI_DN_EDDY_DC_MASK = pdir_basename + "processed/%s-b0_dc_mean_brain_mask.nii.gz" % subject
