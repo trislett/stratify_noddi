@@ -65,5 +65,6 @@ setup(name = PACKAGE_NAME, version = __version__, include_package_data=True,
   install_requires=BUILD_REQUIRES,
   packages=['stratify_noddi'],
   package_dir={'stratify_noddi': ''},
+  package_data={'stratify_noddi': ['ants_oasis_template_ras/*.nii.gz']},
   configuration=configuration
 )
