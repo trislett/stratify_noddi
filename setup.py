@@ -37,6 +37,7 @@ def configuration(parent_package = "", top_path = None):
     quiet = True)
 
   CONFIG.add_scripts(os.path.join("pipeline", "run_stratify_noddi"))
+  CONFIG.add_scripts(os.path.join("pipeline", "run_post_reg_standard"))
   CONFIG.add_subpackage(PACKAGE_NAME)
 
   return CONFIG
