@@ -51,7 +51,7 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type = int,
 		metavar = ('int'),
 		default = [3])
-	ap.add_argument("-rr", "run_restore",
+	ap.add_argument("-rr", "--runrestore",
 		help = "Use RESTORE for robust tensor fitting",
 		action = "store_true")
 	ap.add_argument("-nt", "--numthreads", 
@@ -316,7 +316,7 @@ def run(opts):
 	runCmd_log("fslmaths processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_invMD.nii.gz" % (subject, subject))
 	runCmd_log("fslmaths processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_L2.nii.gz -add processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_L3.nii.gz -div 2 %s_dwi-AP_dn_degibbs_ecc_dc_brain_RD.nii.gz" % (subject, subject))
 
-	if opts.run_restore:
+	if opts.runrestore:
 		# adapted from https://github.com/imagen2/imagen_processing/blob/master/fsl_dti/restore.py
 		# dipy page: http://nipy.org/dipy/examples_built/restore_dti.html
 		# load dti data
