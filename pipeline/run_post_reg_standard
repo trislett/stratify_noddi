@@ -20,7 +20,8 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		nargs = 1,
 		help = "-t1 {T1w_image}",
 		type = str,
-		metavar = ('str'))
+		metavar = ('str'),
+		required = True)
 	ap.add_argument("-std", "--standardtemplate",
 		nargs = 1,
 		help = "-std {standard_image_image}",
