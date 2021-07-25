@@ -411,7 +411,7 @@ def run(opts):
 	# There are spikes in the OD/ICVF histogram images, but that seems to be okay? -> https://github.com/daducci/AMICO/issues/8
 	DWI_METRICS = np.sort(glob.glob("processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_*.nii.gz" % (subject)))
 	generate_qc_tsv(images = DWI_METRICS,
-						outname = '%s_dwi-AP_dn_degibbs_ecc_dc_brain_tf.log' % subject,
+						outname = 'processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_tf.log' % subject,
 						sep = "\t",
 						generate_histogram = True)
 
