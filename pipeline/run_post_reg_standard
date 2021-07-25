@@ -114,7 +114,7 @@ def run(opts):
 
 	# to standard space
 	# linear registration of T1w_brain to standard
-	runCmd_log("echo %s > standard_image_path.txt" STD)
+	runCmd_log("echo %s > standard_image_path.txt" % STD)
 	ref = STD
 	mov = T1w_brain
 	out = 'lin_T1w_to_STD.nii.gz'
