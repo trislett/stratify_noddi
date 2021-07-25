@@ -1,0 +1,164 @@
+#!/usr/bin/env python
+
+import os
+import json
+import glob
+import argparse as ap
+import numpy as np
+import nibabel as nib
+from stratify_noddi.functions import antsLinearRegCmd, antsNonLinearRegCmd, antsApplyTransformCmd, runCmd_log, antsBetCmd, check_dwi_files, generate_qc_tsv
+
+DESCRIPTION = ""
+
+def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
+	ap.add_argument("-s", "--subjid",
+		nargs = 1,
+		help = "Subject ID",
+		metavar = ('str'),
+		required = True)
+	ap.add_argument("-t1", "--t1path",
+		nargs = 1,
+		help = "-t1 {T1w_image}",
+		type = str,
+		metavar = ('str'))
+	ap.add_argument("-std", "--standardtemplate",
+		nargs = 1,
+		help = "-std {standard_image_image}",
+		type = str,
+		default=["%s/data/standard/MNI152_T1_1mm_brain.nii.gz" % os.environ["FSLDIR"]],
+		metavar = ('str'))
+	ap.add_argument("-nt", "--numthreads", 
+		nargs=1,
+		default=[2],
+		type = int,
+		help="Multithreading (default: %(default)s). Only partially implemented")
+	return ap
+
+def run(opts):
+
+	subject = opts.subjid[0]
+	numthreads = opts.numthreads[0]
+	T1w_path = opts.t1path[0]
+	STD = opts.standardtemplate[0]
+
+	DWI_PATH = os.path.abspath("%s/processed/%s_dwi-AP_dn_degibbs_ecc_dc.nii.gz" % (subject, subject))
+	assert os.path.exists(DWI_PATH), "Error: Unwarped DWI image not found. Are you in the processing directory and has %s finished processing?\nMISSING %s" % (subject, DWI_PATH)
+	DWI_METRICS = np.sort(glob.glob("%s/processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_*.nii.gz" % (subject, subject)))
+	DWI_METRICS = [os.path.abspath(img) for img in DWI_METRICS]
+	MEAN_BO = os.path.abspath("%s/processed/%s-b0_dc_mean_brain.nii.gz" % (subject, subject))
+	assert os.path.exists(MEAN_BO), "Error: Mean upwarped B0 image not found. Are you in the processing directory and has %s finished processing?\nMISSING %s" % (subject, MEAN_BO)
+	T1W_PATH = os.path.abspath(T1w_path)
+	assert os.path.exists(T1w_path), "Error: T1w image not found. Are you in the processing directory and has %s finished processing?\nMISSING %s" % (subject, T1w_path)
+
+	# create template space directory
+	TS_DIRECTORY = "%s/processed/templatespace" % subject
+	runCmd_log("mkdir -p %s" % TS_DIRECTORY)
+	os.chdir(TS_DIRECTORY)
+	pdir_basename = os.getcwd() + "/"
+
+	# declare names and copy
+	T1W = pdir_basename + "%s_T1w.nii.gz" % subject
+	runCmd_log("cp %s %s" % (T1W_PATH, T1W))
+
+	# N4 bias field correction for T1w image
+	T1W_N4 = pdir_basename + "%s_T1w_bfc.nii.gz" % subject
+	runCmd_log("N4BiasFieldCorrection -d 3 -i %s -o %s" % (T1W, T1W_N4))
+
+	# ANTS brain extraction; antsbet does do a N4bfc, but this way makes sure that the structural template is unbiased for registration. Unlikely to have much of an effect w/ or w/out N4...
+	runCmd_log(antsBetCmd(numthreads = numthreads, input_image = T1W_N4, output_image_brain = "%s_T1w_bfc_" % subject))
+
+	# declare names
+	T1w_brain = pdir_basename + "%s_T1w_bfc_BrainExtractionBrain.nii.gz" % subject
+
+
+	# linear registration of T1w_brain to B0_mean_brain
+	ref = MEAN_BO
+	mov = T1w_brain
+	out = 'lin_T1w_to_b0.nii.gz'
+	runCmd_log(antsLinearRegCmd(numthreads = numthreads,
+										reference  = ref,
+										mov = mov,
+										out_basename = out,
+										outdir = None,
+										use_float=False))
+
+	# non linear registration of B0_mean_brain to lin_T1w_to_b0.nii.gz
+	ref = 'lin_T1w_to_b0.nii.gz'
+	mov = MEAN_BO
+	out = 'b0_to_linT1.nii.gz'
+	runCmd_log(antsNonLinearRegCmd(numthreads = numthreads,
+											reference = ref,
+											mov = mov,
+											out_basename = out,
+											outdir = None,
+											use_float = False))
+
+	# create T1w mask
+	runCmd_log("fslmaths lin_T1w_to_b0.nii.gz -bin %s_template_mask.nii.gz" % subject)
+	runCmd_log("fslmaths lin_T1w_to_b0.nii.gz -bin -ero %s_template_mask_ero1.nii.gz" % subject)
+
+	for metric_img in DWI_METRICS:
+		metric = metric_img.split("_")[-1][:-7]
+		if not ((metric == 'V1') or (metric == 'V2') or (metric == 'V3')):
+			# apply transformation to DWI data
+			# declare names
+			outname = pdir_basename + "%s_dwi-native_%s.nii.gz" % (subject, metric)
+			warps = ["b0_to_linT1.nii.gz_0Warp.nii.gz"]
+			runCmd_log(antsApplyTransformCmd(reference = ref,
+														mov = metric_img,
+														warps = warps,
+														outname = outname,
+														inverse = False, multipleimages = False))
+			runCmd_log("fslmaths %s -mul %s_template_mask.nii.gz %s" % (outname, subject, outname))
+
+	# to standard space
+	# linear registration of T1w_brain to standard
+	runCmd_log("echo %s > standard_image_path.txt" %s)
+	ref = STD
+	mov = T1w_brain
+	out = 'lin_T1w_to_STD.nii.gz'
+	runCmd_log(antsLinearRegCmd(numthreads = numthreads,
+										reference  = ref,
+										mov = mov,
+										out_basename = out,
+										outdir = None,
+										use_float=False))
+	# non-linear registration of T1w_brain to standard
+	ref = STD
+	mov = 'lin_T1w_to_STD.nii.gz'
+	out = 'T1w_to_STD.nii.gz'
+	runCmd_log(antsNonLinearRegCmd(numthreads = numthreads,
+										reference  = ref,
+										mov = mov,
+										out_basename = out,
+										outdir = None,
+										use_float=False))
+
+	# apply transformation
+	for metric_img in DWI_METRICS:
+		metric = metric_img.split("_")[-1][:-7]
+		if not ((metric == 'V1') or (metric == 'V2') or (metric == 'V3')):
+			ref = STD
+			mov = pdir_basename + "%s_dwi-native_%s.nii.gz" % (subject, metric)
+			outname = pdir_basename + "%s_dwi-standard_%s.nii.gz" % (subject, metric)
+			warps = ["T1w_to_STD.nii.gz_0Warp.nii.gz", "lin_T1w_to_STD.nii.gz_0GenericAffine.mat", "b0_to_linT1.nii.gz_0InverseWarp.nii.gz"]
+			runCmd_log(antsApplyTransformCmd(reference = ref,
+														mov = mov,
+														warps = warps,
+														outname = outname,
+														inverse = False, multipleimages = False))
+			runCmd_log("fslmaths T1w_to_STD.nii.gz -bin -mul %s %s" % (outname, outname))
+	# There are spikes in the OD/ICVF histogram images, but that seems to be okay? -> https://github.com/daducci/AMICO/issues/8
+
+	# QC files
+	DWI_METRICS = np.sort(glob.glob("%s_dwi-native_*.nii.gz" % (subject)))
+	generate_qc_tsv(images = DWI_METRICS, outname = "%s_dwi-native_tf.log" % subject, sep = "\t", generate_histogram = True)
+	
+	DWI_METRICS = np.sort(glob.glob("%s_dwi-standard_*.nii.gz" % (subject)))
+	generate_qc_tsv(images = DWI_METRICS, outname = "%s_dwi-standard_tf.log" % subject, sep = "\t", generate_histogram = True)
+
+if __name__ == "__main__":
+	parser = getArgumentParser()
+	opts = parser.parse_args()
+	run(opts)
+

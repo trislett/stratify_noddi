@@ -3,8 +3,10 @@
 import os
 import time
 import datetime
+import pandas as pd
 import numpy as np
 import nibabel as nib
+import matplotlib.pyplot as plt
 from skimage import filters
 
 
@@ -34,6 +36,50 @@ def check_dwi_files(dwi_opts, extension):
 		return(selected_file)
 	except NameError:
 		return(None)
+
+def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True):
+	"""
+	Generate QC log files Summary Tensor Fitting with weighted least square
+	
+	Parameters
+	----------
+	images : list
+	outname : str
+	
+	Returns
+	-------
+	None
+	"""
+	Image = []
+	Mean = []
+	Std = []
+	Min = []
+	Max = []
+
+	nonimages = ['V1', 'V2', 'V3', 'restore-V1', 'restore-V2','restore-V3']
+
+	for img in images:
+		data = nib.load(img).get_fdata()
+		index = data != 0
+		metric = os.path.basename(img).replace(".nii.gz","").split("_")[-1]
+		if not metric in nonimages:
+			Image.append(metric)
+			Mean.append(np.mean(data[index]))
+			Std.append(np.std(data[index]))
+			Min.append(np.min(data[index]))
+			Max.append(np.max(data[index]))
+			if generate_histogram:
+				plt.hist(data[index], bins=200)
+				plt.savefig(fname = img.replace(".nii.gz","_histogram.png"),
+								bbox_inches = 'tight')
+				plt.close()
+	outpd = pd.DataFrame()
+	outpd["Img"] = Image
+	outpd["Mean"] = Mean
+	outpd["SD"] = Std
+	outpd["Min"] = Min
+	outpd["Max"] = Max
+	outpd.to_csv(outname, sep = sep, index = False)
 
 def get_wildcard(searchstring, printarray = False): # super dirty
 	"""

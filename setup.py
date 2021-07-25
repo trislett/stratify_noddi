@@ -5,7 +5,7 @@ from distutils.command.sdist import sdist
 from setuptools import setup, find_packages
 
 PACKAGE_NAME = "stratify_noddi"
-BUILD_REQUIRES = ["numpy>=1.16.5", "nibabel", "argparse", "matplotlib", "scipy", "scikit-image", "python-spams","dmri-amico"]
+BUILD_REQUIRES = ["numpy>=1.16.5", "nibabel", "argparse", "pandas", "matplotlib", "scipy", "scikit-image", "python-spams","dmri-amico"]
 
 CLASSIFIERS = ["Development Status :: 3 - Alpha",
   "Environment :: Console",
