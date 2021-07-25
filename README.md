@@ -12,7 +12,7 @@ fsl https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FslInstallation
 ANTs https://github.com/ANTsX/ANTs/wiki/Compiling-ANTs-on-Linux-and-Mac-OS
 
 
-Additional ubuntu requirements (they're already installed)
+Additional ubuntu requirements (they're probably already installed)
 ```
 apt-get -y install libblas-dev liblapack-dev gfortran
 ```
