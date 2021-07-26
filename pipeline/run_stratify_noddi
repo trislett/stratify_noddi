@@ -3,6 +3,7 @@
 import os
 import json
 import amico
+import glob
 import argparse as ap
 import numpy as np
 import nibabel as nib
@@ -299,6 +300,7 @@ def run(opts):
 
 		runCmd_log("eddy_openmp --imain=%s --mask=processed/%s-b0_dc_mean_brain_mask --acqp=processed/acqparams.txt --index=processed/index.txt --bvecs=%s --bvals=%s --fwhm=0 --topup=processed/%s-topup-results --flm=quadratic --out=processed/%s_dwi-AP_dn_degibbs_ecc_dc" % (DWI_DN_DG, subject, BVEC, BVAL, subject, subject))
 
+		# declare names
 		DWI_DN_EDDY_DC = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.nii.gz" % subject
 		DWI_DN_EDDY_BVEC = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.bvec" % subject
 		DWI_DN_EDDY_BVAL = pdir_basename + "processed/%s_dwi-AP_dn_degibbs_ecc_dc.bval" % subject
@@ -314,7 +316,7 @@ def run(opts):
 							DWI_DN_EDDY_DC_MASK,
 							subject))
 	runCmd_log("fslmaths processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_MD.nii.gz -thr 0.0001 -recip processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_invMD.nii.gz" % (subject, subject))
-	runCmd_log("fslmaths processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_L2.nii.gz -add processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_L3.nii.gz -div 2 %s_dwi-AP_dn_degibbs_ecc_dc_brain_RD.nii.gz" % (subject, subject))
+	runCmd_log("fslmaths processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_L2.nii.gz -add processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_L3.nii.gz -div 2 processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_RD.nii.gz" % (subject, subject, subject))
 
 	if opts.runrestore:
 		# adapted from https://github.com/imagen2/imagen_processing/blob/master/fsl_dti/restore.py
