@@ -60,6 +60,7 @@ def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True):
 
 	for img in images:
 		data = nib.load(img).get_fdata()
+		data[np.isnan(data)] = 0
 		index = data != 0
 		metric = os.path.basename(img).replace(".nii.gz","").split("_")[-1]
 		if not metric in nonimages:
