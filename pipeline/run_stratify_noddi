@@ -411,6 +411,8 @@ def run(opts):
 	runCmd_log("rm -rf mask.nii subject4d.nii kernels")
 	
 	# There are spikes in the OD/ICVF histogram images, but that seems to be okay? -> https://github.com/daducci/AMICO/issues/8
+	
+	# output QC logs and histograms
 	DWI_METRICS = np.sort(glob.glob("processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_*.nii.gz" % (subject)))
 	generate_qc_tsv(images = DWI_METRICS,
 						outname = 'processed/%s_dwi-AP_dn_degibbs_ecc_dc_brain_tf.log' % subject,
