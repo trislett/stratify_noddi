@@ -37,7 +37,7 @@ def check_dwi_files(dwi_opts, extension):
 	except NameError:
 		return(None)
 
-def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True):
+def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True, nonimages = ['V1', 'V2', 'V3', 'restore-V1', 'restore-V2','restore-V3', 'tensor', 'mask']):
 	"""
 	Generate QC log files Summary Tensor Fitting with weighted least square
 	
@@ -55,8 +55,6 @@ def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True):
 	Std = []
 	Min = []
 	Max = []
-
-	nonimages = ['V1', 'V2', 'V3', 'restore-V1', 'restore-V2','restore-V3']
 
 	for img in images:
 		data = nib.load(img).get_fdata()
