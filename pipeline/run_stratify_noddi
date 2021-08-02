@@ -46,12 +46,6 @@ def getArgumentParser(ap = ap.ArgumentParser(description = DESCRIPTION)):
 		type = str,
 		metavar = ('str'),
 		default = ['0.0876336'])
-	ap.add_argument("--defaultnumopposingb0",
-		nargs = 1,
-		help = "--defaultnumopposingb0. Sets the number of pa b0s to extract from the start if pa vector/bval files are missing (default: %(default)s)",
-		type = int,
-		metavar = ('int'),
-		default = [3])
 	ap.add_argument("-rr", "--runrestore",
 		help = "Use RESTORE for robust tensor fitting",
 		action = "store_true")
@@ -93,7 +87,6 @@ def run(opts):
 	JSON_path = check_dwi_files(dwi_opts = opts.dwipath, extension = '.json')
 	numthreads = opts.numthreads[0]
 	TotalReadoutTime = str(opts.totalreadouttime[0])
-	N_PA_B0 = int(opts.defaultnumopposingb0[0])
 	
 	# list of intermediate files for cleanup
 	intermediate_files = []
@@ -133,7 +126,7 @@ def run(opts):
 	runCmd_log("cp %s %s" % (DWI_path, DWI))
 	runCmd_log("cp %s %s" % (BVAL_path, BVAL))
 	runCmd_log("cp %s %s" % (BVEC_path, BVEC))
-	runCmd_log("mrconvert -fslgrad %s %s %s %s" % (BVEC_path, BVAL_path, DWI_path, MIF)
+	runCmd_log("mrconvert -fslgrad %s %s %s %s" % (BVEC_path, BVAL_path, DWI_path, MIF))
 
 	if opts.t1path:
 		T1W = pdir_basename + "processed/%s_T1w.nii.gz" % subject
@@ -145,8 +138,10 @@ def run(opts):
 		B0_AP = pdir_basename + "processed/%s_b0-AP.mif" % subject
 		paBVEC = pdir_basename + "processed/%s_dti-PA.bvec" % subject
 		paBVAL = pdir_basename + "processed/%s_dti-PA.bval" % subject
+		
 		#this will be cut
 		paDWI = pdir_basename + "processed/%s_dti-PA.nii.gz" % subject
+		
 		if pa_BVAL_path is not None:
 			runCmd_log("cp %s %s" % (pa_BVAL_path, paBVAL))
 		else:
@@ -167,7 +162,6 @@ def run(opts):
 		AP_B0_index = AP_B0_bval_round==0
 		AP_B0_indices = np.squeeze(np.argwhere(AP_B0_index == True))
 		runCmd_log("mrconvert %s -coord 3 %s %s" % (MIF, ",".join(AP_B0_indices.astype(str)), B0_AP))
-		num_AP_B0 = len(AP_B0_bval_round[AP_B0_index])
 
 		# legacy
 		runCmd_log("cp %s %s" % (pa_DWI_path, paDWI))
@@ -396,6 +390,11 @@ def run(opts):
 		MD[maskdata!=1] = 0
 		md_img = nib.Nifti1Image(MD.astype(np.float32), img.get_affine())
 		nib.save(md_img, "processed/%s_dti-AP_denoised_degibbsed_preprocessed_biascorrected_restore-adc.nii.gz" % subject)
+
+		AD[np.isnan(AD)] = 0
+		AD[maskdata!=1] = 0
+		ad_img = nib.Nifti1Image(RD.astype(np.float32), img.get_affine())
+		nib.save(ad_img, "processed/%s_dti-AP_denoised_degibbsed_preprocessed_biascorrected_restore-ad.nii.gz" % subject)
 
 		RD[np.isnan(RD)] = 0
 		RD[maskdata!=1] = 0
