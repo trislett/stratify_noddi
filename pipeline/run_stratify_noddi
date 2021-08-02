@@ -439,7 +439,8 @@ def run(opts):
 	runCmd_log("rm -rf mask.nii subject4d.nii kernels")
 	
 	# There are spikes in the OD/ICVF histogram images, but that seems to be okay? -> https://github.com/daducci/AMICO/issues/8
-	
+
+	os.chdir("../../")
 	# SNR of B0 images. Is this a good estimate of noise?
 	img = nib.load(DWI_DN_EDDY_DC_BC)
 	dataraw = img.get_fdata()
