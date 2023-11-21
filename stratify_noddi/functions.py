@@ -37,7 +37,7 @@ def check_dwi_files(dwi_opts, extension):
 	except NameError:
 		return(None)
 
-def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True, nonimages = ['V1', 'V2', 'V3', 'restore-V1', 'restore-V2','restore-V3', 'tensor', 'mask']):
+def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True, nonimages = ['V1', 'V2', 'V3', 'mo', 'restore-V1', 'restore-V2','restore-V3', 'tensor', 'mask']):
 	"""
 	Generate QC log files Summary Tensor Fitting with weighted least square
 	
@@ -55,6 +55,7 @@ def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True, noni
 	Std = []
 	Min = []
 	Max = []
+	Noutlier = []
 
 	for img in images:
 		data = nib.load(img).get_fdata()
@@ -62,13 +63,26 @@ def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True, noni
 		index = data != 0
 		metric = os.path.basename(img).replace(".nii.gz","").split("_")[-1]
 		if not metric in nonimages:
+			data_subset = np.copy(data[index])
+			mu = np.mean(data_subset)
+			stdev = np.std(data_subset)
+			outlier = ((np.abs(data_subset) - mu) > 5*stdev)
+			if np.sum(outlier) != 0:
+				print("%s : n_outliers = %d" % (metric, np.sum(outlier)))
 			Image.append(metric)
-			Mean.append(np.mean(data[index]))
-			Std.append(np.std(data[index]))
-			Min.append(np.min(data[index]))
-			Max.append(np.max(data[index]))
+			Mean.append(np.mean(data_subset))
+			Std.append(np.std(data_subset))
+			Min.append(np.min(data_subset))
+			Max.append(np.max(data_subset))
+			Noutlier.append(np.sum(outlier))
 			if generate_histogram:
-				plt.hist(data[index], bins=200)
+				plt.hist(data_subset[~outlier], bins=200)
+				if np.sum(outlier) > 0:
+					textstr = 'Warning %d >5 s.d. outlier voxels removed.' % np.sum(outlier)
+					props = dict(boxstyle='round', facecolor='red', alpha=0.5)
+					plt.text(0.1, 0.95, textstr, transform=plt.gca().transAxes, fontsize=10,
+					verticalalignment='top', bbox=props)
+
 				plt.savefig(fname = img.replace(".nii.gz","_histogram.png"),
 								bbox_inches = 'tight')
 				plt.close()
@@ -78,6 +92,7 @@ def generate_qc_tsv(images, outname, sep = "\t", generate_histogram = True, noni
 	outpd["SD"] = Std
 	outpd["Min"] = Min
 	outpd["Max"] = Max
+	outpd["Noutliers"] = Noutlier
 	outpd.to_csv(outname, sep = sep, index = False)
 
 def get_wildcard(searchstring, printarray = False): # super dirty
